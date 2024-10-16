@@ -2,8 +2,8 @@
   ros__parameters:
 
     # Topics
-    pointCloudTopic: "/points"                   # Point cloud data
-    imuTopic: "/imu/data"                        # IMU data
+    pointCloudTopic: "/points_raw"                   # Point cloud data
+    imuTopic: "/imu_raw"                        # IMU data
     odomTopic: "odometry/imu"                    # IMU pre-preintegration odometry, same frequency as IMU
     gpsTopic: "odometry/gpsz"                    # GPS odometry topic from navsat, see module_navsat.launch file
 
@@ -14,8 +14,10 @@
     mapFrame: "map"
 
     # GPS Settings
-    useImuHeadingInitialization: false           # if using GPS data, set to "true"
+    # LIO-SAM里将GPS作为一种非必要的约束，想利用这个进行优化前确认信号状态足够好
+    useImuHeadingInitialization: true           # if using GPS data, set to "true"
     useGpsElevation: false                       # if GPS elevation is bad, set to "false"
+    # 算法判读是否加入GPS Factor的条件就是对协方差矩阵与阈值的对比  如果GPS信号好可以改下阈值让GPS多参与进来
     gpsCovThreshold: 2.0                         # m^2, threshold for using GPS data
     poseCovThreshold: 25.0                       # m^2, threshold for using GPS data
 
@@ -24,15 +26,16 @@
     savePCDDirectory: "/Downloads/LOAM/"         # in your home folder, starts and ends with "/". Warning: the code deletes "LOAM" folder then recreates it. See "mapOptimization" for implementation
 
     # Sensor Settings
-    sensor: ouster                               # lidar sensor type, either 'velodyne', 'ouster' or 'livox'
-    N_SCAN: 64                                   # number of lidar channels (i.e., Velodyne/Ouster: 16, 32, 64, 128, Livox Horizon: 6)
-    Horizon_SCAN: 512                            # lidar horizontal resolution (Velodyne:1800, Ouster:512,1024,2048, Livox Horizon: 4000)
+    sensor: velodyne                               # lidar sensor type, either 'velodyne', 'ouster' or 'livox'
+    N_SCAN: 16                                   # number of lidar channels (i.e., Velodyne/Ouster: 16, 32, 64, 128, Livox Horizon: 6)
+    Horizon_SCAN: 1800                            # lidar horizontal resolution (Velodyne:1800, Ouster:512,1024,2048, Livox Horizon: 4000)
     downsampleRate: 1                            # default: 1. Downsample your data if too many
     # points. i.e., 16 = 64 / 4, 16 = 16 / 1
     lidarMinRange: 1.0                           # default: 1.0, minimum lidar range to be used
     lidarMaxRange: 1000.0                        # default: 1000.0, maximum lidar range to be used
 
     # IMU Settings
+    # 这里是作者的IMU配置，如果追求更好的效果，可以根据自己的传感器参数代替
     imuAccNoise: 3.9939570888238808e-03
     imuGyrNoise: 1.5636343949698187e-03
     imuAccBiasN: 6.4356659353532566e-05
@@ -40,13 +43,18 @@
 
     imuGravity: 9.80511
     imuRPYWeight: 0.01
-
+ 
+  # 标定这块 平移矩阵没啥好说的 其实这个影响不是特别大 重点是旋转
     extrinsicTrans:  [ 0.0,  0.0,  0.0 ]
-    extrinsicRot:    [-1.0,  0.0,  0.0,
+  # 这里的旋转比较关键 需要配合utility.h中相关操作以及作者提供的图理解
+  # 作者的IMU与雷达的坐标系以及IMU提供的欧拉角的方向跟常用的有区别 特别注意IMU 的yaw角是与常见的反向的
+  # 所以才将Rot和RPY的旋转变换分开写，其实常见的两个矩阵都是一样的
+  # 一定要根据你的传感器安装位置以及默认坐标轴的方向进行标定 同时追踪extrinsicRot这个值在utility.h文件中的处理 自己乘一下就知道了
+    extrinsicRot:    [1.0,  0.0,  0.0,
                        0.0,  1.0,  0.0,
                        0.0,  0.0, -1.0 ]
-    extrinsicRPY: [ 0.0,  1.0,  0.0,
-                   -1.0,  0.0,  0.0,
+    extrinsicRPY: [ 0.0,  -1.0,  0.0,
+                   1.0,  0.0,  0.0,
                     0.0,  0.0,  1.0 ]
 
     # LOAM feature threshold
